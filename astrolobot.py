@@ -82,10 +82,8 @@ def get_planet_info():
             sign_num = int(south_pos // 30)
             sign = zodiac_signs[sign_num]
             positions_info.append(f"South Node in {sign}")
-
-    info=', '.join(retrograde_info)+' in retrograde, '+', '.join(positions_info)
             
-    return info
+    return retrograde_info, positions_info
 
 async def load_tokens():
     global obs_settings
@@ -116,7 +114,14 @@ async def setup_hook():
 
 async def event_message(event):
     if(event.text=='!astrology'):
-        await event.broadcaster.send_message(get_planet_info(),event.broadcaster)
+        retrograde_info, positions_info = get_planet_info()
+        await event.broadcaster.send_message(', '.join(retrograde_info)+' in Retrograde',event.broadcaster)
+        await event.broadcaster.send_message(', '.join(positions_info[0:2]),event.broadcaster)
+        await event.broadcaster.send_message(', '.join(positions_info[2:5]),event.broadcaster)
+        await event.broadcaster.send_message(', '.join(positions_info[5:8]),event.broadcaster)
+        await event.broadcaster.send_message(', '.join(positions_info[8:11]),event.broadcaster)
+        await event.broadcaster.send_message(', '.join(positions_info[11:13]),event.broadcaster)
+
 
 async def event_oauth_authorized(event):
     await setup_hook()
