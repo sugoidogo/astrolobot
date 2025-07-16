@@ -2,12 +2,30 @@ import swisseph as swe
 from datetime import datetime
 import webbrowser
 from urllib.parse import quote_plus
+from urllib.request import urlretrieve
 from threading import Thread
-from os import chdir
+from os import makedirs,path
 import http.server
 import asyncio
 import twitchio
 import json
+
+def download_files():
+    if not path.exists(script_path()+'swisseph/ephe/'):
+        makedirs(script_path()+'swisseph/ephe/')
+    #if not path.exists(script_path()+'swisseph/ephe/sefstars.txt'):
+    #    print('downloading sefstars.txt')
+    #    urlretrieve('https://github.com/aloistr/swisseph/raw/refs/heads/master/ephe/sefstars.txt',script_path()+'swisseph/ephe/sefstars.txt')
+    if not path.exists(script_path()+'swisseph/ephe/seas_18.se1'):
+        print('downloading seas_18.se1')
+        urlretrieve('https://github.com/aloistr/swisseph/raw/refs/heads/master/ephe/seas_18.se1',script_path()+'swisseph/ephe/seas_18.se1')
+    #if not path.exists(script_path()+'swisseph/ephe/semo_18.se1'):
+    #    print('downloadingh semo_18.se1')
+    #    urlretrieve('https://github.com/aloistr/swisseph/raw/refs/heads/master/ephe/semo_18.se1',script_path()+'swisseph/ephe/semo_18.se1')
+    #if not path.exists(script_path()+'swisseph/ephe/sepl_18.se1'):
+    #    print('downloading sepl_18.se1')
+    #    urlretrieve('https://github.com/aloistr/swisseph/raw/refs/heads/master/ephe/sepl_18.se1',script_path()+'swisseph/ephe/sepl_18.se1')
+    print('swiss ephemeris files ready')
 
 def get_planet_info():
     # make sure location is set in THIS thread
@@ -148,6 +166,8 @@ def script_load(settings):
         import pip
         pip.main(['install','-qqq','pyswisseph','twitchio','twitchio[starlette]'])
         obspython.obs_data_set_bool(settings,'pip_done',True)
+
+    download_files()
 
     obs_settings=settings
 
