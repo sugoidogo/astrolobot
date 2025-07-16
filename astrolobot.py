@@ -181,3 +181,9 @@ def script_update(settings):
     client_secret=obspython.obs_data_get_string(settings,'client_secret')
     if client_id and client_secret:
         twitchio_thread.start()
+
+if __name__ == '__main__':
+    def script_path():
+        return path.dirname(__file__)+'/'
+    download_files()
+    print(get_planet_info())
