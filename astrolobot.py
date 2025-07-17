@@ -168,10 +168,11 @@ def script_load(settings):
     global save
 
     if not obspython.obs_data_get_bool(settings,'pip_done'):
-        import pip
-        pip.main(['install','-qqq','pyswisseph','twitchio','twitchio[starlette]'])
+        import pip,sys
+        pip.main(['install','-qqq','pyswisseph','twitchio','twitchio[starlette]','--target',script_path()])
         obspython.obs_data_set_bool(settings,'pip_done',True)
-
+    
+    sys.path.append(script_path())
     download_files()
 
     obs_settings=settings
