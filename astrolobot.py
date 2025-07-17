@@ -71,7 +71,7 @@ def get_planet_info():
                         "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"]
         sign_num = int(pos[0] // 30)  # 30° per sign
         sign = zodiac_signs[sign_num]
-        positions_info.append(f"{name} in {sign}")
+        positions_info.append(f"{name} is in {sign}")
 
         if name=='North Node':
             # rotate sign 180 dagrees
@@ -83,7 +83,23 @@ def get_planet_info():
             sign = zodiac_signs[sign_num]
             positions_info.append(f"South Node in {sign}")
             
-    return retrograde_info, positions_info
+    match len(retrograde_info):
+            case 0:
+                retrograde_info=''
+            case 1:
+                retrograde_info=retrograde_info[0]+' is in Retrograde'
+            case 2:
+                retrograde_info=' and '.join(retrograde_info)+' are in Retrograde'
+            case _:
+                retrograde_info=', '.join(retrograde_info[0:-1])+', and '+retrograde_info[-1]+' are in Retrograde'
+
+    info=retrograde_info
+    info+='\n'+', '.join(positions_info[0:2])
+    info+='\n'+', '.join(positions_info[2:5])
+    info+='\n'+', '.join(positions_info[5:8])
+    info+='\n'+', '.join(positions_info[8:11])
+    info+='\n'+', '.join(positions_info[11:13])
+    return info
 
 async def load_tokens():
     global obs_settings
@@ -114,14 +130,10 @@ async def setup_hook():
 
 async def event_message(event):
     if(event.text=='!astrology'):
-        retrograde_info, positions_info = get_planet_info()
-        await event.broadcaster.send_message(', '.join(retrograde_info)+' in Retrograde',event.broadcaster)
-        await event.broadcaster.send_message(', '.join(positions_info[0:2]),event.broadcaster)
-        await event.broadcaster.send_message(', '.join(positions_info[2:5]),event.broadcaster)
-        await event.broadcaster.send_message(', '.join(positions_info[5:8]),event.broadcaster)
-        await event.broadcaster.send_message(', '.join(positions_info[8:11]),event.broadcaster)
-        await event.broadcaster.send_message(', '.join(positions_info[11:13]),event.broadcaster)
-
+        info = get_planet_info()
+        for line in info.splitlines(False):
+            if line:
+                await event.broadcaster.send_message(line,event.broadcaster)
 
 async def event_oauth_authorized(event):
     await setup_hook()
