@@ -143,6 +143,8 @@ async def load_tokens():
     global obs_settings
     obs_tokens=obspython.obs_data_get_obj(obs_settings,'tokens')
     obs_tokens=obspython.obs_data_get_json(obs_tokens)
+    if not obs_tokens:
+        return
     obs_tokens=json.loads(obs_tokens)
     for token in obs_tokens.values():
         await client.add_token(token['access'],token['refresh'])
