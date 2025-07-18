@@ -227,13 +227,14 @@ def script_load(settings):
     global obs_settings
     global save
 
+    sys.path.append(script_path())
+
     try:
         import twitchio, swisseph
     except:
         import pip
         pip.main(['install','-qqq','pyswisseph','twitchio','twitchio[starlette]','--target',script_path()])
-    
-    sys.path.append(script_path())
+
     download_files()
 
     obs_settings=settings
