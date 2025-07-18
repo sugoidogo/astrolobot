@@ -1,5 +1,5 @@
 import swisseph as swe
-from datetime import datetime
+from datetime import datetime,timezone
 import webbrowser
 from urllib.parse import quote_plus
 from urllib.request import urlretrieve
@@ -27,18 +27,21 @@ def download_files():
     #    urlretrieve('https://github.com/aloistr/swisseph/raw/refs/heads/master/ephe/sepl_18.se1',script_path()+'swisseph/ephe/sepl_18.se1')
     print('swiss ephemeris files ready')
 
-def get_planet_info():
+
+zodiac_signs = ["Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo", 
+    "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"]
+
+def get_planet_info(date):
     # make sure location is set in THIS thread
     swe.set_ephe_path(script_path()+'swisseph/ephe/')
     swe.set_sid_mode(swe.SIDM_LAHIRI)
     # Get current UTC time
-    now = datetime.utcnow()
-    julian_day = swe.julday(now.year, now.month, now.day)
+    julian_day = swe.julday(date.year, date.month, date.day)
 
     # List of planets (Swiss Ephemeris IDs)
     planets = {
-        "Sun": swe.SUN,
-        "Moon": swe.MOON,
+        "The Sun": swe.SUN,
+        "The Moon": swe.MOON,
         "Mercury": swe.MERCURY,
         "Venus": swe.VENUS,
         "Mars": swe.MARS,
@@ -52,7 +55,7 @@ def get_planet_info():
     }
 
     retrograde_info = []
-    positions_info = []
+    positions_info = {}
 
     for name, planet_id in planets.items():
         # Get planet position (longitude) and speed
@@ -67,11 +70,8 @@ def get_planet_info():
                 retrograde_info.append(name)
 
         # Get zodiac sign (0-360° -> Aries to Pisces)
-        zodiac_signs = ["Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo", 
-                        "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"]
         sign_num = int(pos[0] // 30)  # 30° per sign
-        sign = zodiac_signs[sign_num]
-        positions_info.append(f"{name} is in {sign}")
+        positions_info[name]=sign_num
 
         if name=='North Node':
             # rotate sign 180 dagrees
@@ -80,25 +80,65 @@ def get_planet_info():
                 south_pos-=360
             # calculate South Node sign
             sign_num = int(south_pos // 30)
-            sign = zodiac_signs[sign_num]
-            positions_info.append(f"South Node in {sign}")
-            
-    match len(retrograde_info):
-            case 0:
-                retrograde_info=''
-            case 1:
-                retrograde_info=retrograde_info[0]+' is in Retrograde'
-            case 2:
-                retrograde_info=' and '.join(retrograde_info)+' are in Retrograde'
-            case _:
-                retrograde_info=', '.join(retrograde_info[0:-1])+', and '+retrograde_info[-1]+' are in Retrograde'
+            positions_info['South Node']=sign_num
 
-    info=retrograde_info
+    return {
+        'positions': positions_info,
+        'retrograde': retrograde_info,
+    }
+
+def get_planet_info_formatted(date=datetime.utcnow()):
+    planets=get_planet_info(date)
+            
+    match len(planets['retrograde']):
+            case 0:
+                info=''
+            case 1:
+                info=planets['retrograde'][0]+' is in Retrograde'
+            case 2:
+                info=' and '.join(planets['retrograde'])+' are in Retrograde'
+            case _:
+                info=', '.join(planets['retrograde'][0:-1])+', and '+planets['retrograde'][-1]+' are in Retrograde'
+
+    positions_info=[]
+    for planet,position in planets['positions'].items():
+        positions_info.append(planet+' is in '+zodiac_signs[position])
+
     info+='\n'+', '.join(positions_info[0:2])
     info+='\n'+', '.join(positions_info[2:5])
     info+='\n'+', '.join(positions_info[5:8])
     info+='\n'+', '.join(positions_info[8:11])
     info+='\n'+', '.join(positions_info[11:13])
+    return info
+
+def get_transits():
+    seconds_in_1_day=86400
+    now=datetime.utcnow()
+    positions_today=get_planet_info(now)
+    position_updates={}
+    days=1
+    date_format='%b %-d'
+    while len(position_updates)<12 and days<29:
+        future_timestamp=now.timestamp()+(days*seconds_in_1_day)
+        future_date=datetime.fromtimestamp(future_timestamp,timezone.utc)
+        positions_future=get_planet_info(future_date)
+        for planet in positions_future['retrograde']:
+            if planet not in positions_today['retrograde'] and planet not in position_updates.keys():
+                position_updates[planet]='entering Retrograde on '+future_date.strftime(date_format)
+        for planet in positions_today['retrograde']:
+            if planet not in positions_future['retrograde'] and planet not in position_updates.keys():
+                position_updates[planet]='exiting Retrograde on '+future_date.strftime(date_format)
+        for planet in positions_future['positions']:
+            if positions_today['positions'][planet]!=positions_future['positions'][planet] and planet not in position_updates.keys():
+                position_updates[planet]='entering '+zodiac_signs[positions_future['positions'][planet]]+' on '+future_date.strftime(date_format)
+        days+=1
+    return position_updates        
+
+def get_transits_formatted():
+    transits=get_transits()
+    info=''
+    for planet,transit in transits.items():
+        info+='\n'+planet+' is '+transit
     return info
 
 async def load_tokens():
@@ -130,7 +170,12 @@ async def setup_hook():
 
 async def event_message(event):
     if(event.text=='!astrology'):
-        info = get_planet_info()
+        info = get_planet_info_formatted()
+        for line in info.splitlines(False):
+            if line:
+                await event.broadcaster.send_message(line,event.broadcaster)
+    if(event.text=='!transits'):
+        info = get_transits_formatted()
         for line in info.splitlines(False):
             if line:
                 await event.broadcaster.send_message(line,event.broadcaster)
@@ -204,4 +249,5 @@ if __name__ == '__main__':
     def script_path():
         return path.dirname(__file__)+'/'
     download_files()
-    print(get_planet_info())
+    print(get_planet_info_formatted())
+    print(get_transits_formatted())
