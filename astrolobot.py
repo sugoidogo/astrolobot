@@ -1,4 +1,3 @@
-import swisseph as swe
 from datetime import datetime,timezone
 import webbrowser
 from urllib.parse import quote_plus
@@ -6,8 +5,6 @@ from urllib.request import urlretrieve
 from threading import Thread
 from os import makedirs,path
 import http.server
-import asyncio
-import twitchio
 import json
 
 def download_files():
@@ -32,6 +29,7 @@ zodiac_signs = ["Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo",
     "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"]
 
 def get_planet_info(date):
+    import swisseph as swe
     # make sure location is set in THIS thread
     swe.set_ephe_path(script_path()+'swisseph/ephe/')
     swe.set_sid_mode(swe.SIDM_LAHIRI)
@@ -163,6 +161,7 @@ async def save_tokens():
     obspython.obs_data_set_obj(obs_settings,'tokens',obs_tokens)
 
 async def setup_hook():
+    import twitchio
     for user_id in client.tokens:
         await client.subscribe_websocket(twitchio.eventsub.ChatMessageSubscription(broadcaster_user_id=user_id,user_id=user_id),token_for=user_id)
         print('connected to channel '+user_id)
@@ -184,6 +183,7 @@ async def event_oauth_authorized(event):
     await setup_hook()
 
 def main():
+    import twitchio
     global client, client_id, client_secret, adapter, scopes
     #chdir(script_path())
     scopes = twitchio.Scopes(['user:read:chat','user:write:chat','user:bot','channel:bot'])
@@ -221,11 +221,12 @@ def script_properties():
     return properties
 
 def script_load(settings):
+    import sys
     global obs_settings
     global save
 
     if not obspython.obs_data_get_bool(settings,'pip_done'):
-        import pip,sys
+        import pip
         pip.main(['install','-qqq','pyswisseph','twitchio','twitchio[starlette]','--target',script_path()])
         obspython.obs_data_set_bool(settings,'pip_done',True)
     
@@ -236,6 +237,7 @@ def script_load(settings):
 
 def script_unload():
     global client
+    import asyncio
     asyncio.run(client.close())
 
 def script_update(settings):
