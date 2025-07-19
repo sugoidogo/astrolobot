@@ -112,7 +112,7 @@ def get_transits():
     positions_today=get_planet_info(now)
     position_updates={}
     days=1
-    date_format='%b %-d'
+    date_format='%b %d'
     while len(position_updates)<12 and days<29:
         future_timestamp=now.timestamp()+(days*seconds_in_1_day)
         future_date=datetime.fromtimestamp(future_timestamp,timezone.utc)
