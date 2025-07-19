@@ -1,2 +1,2 @@
 pyswisseph
-twitchio
+twitch.py
