@@ -182,6 +182,8 @@ async def event_message(event):
                 await event.broadcaster.send_message(line,event.broadcaster)
 
 async def event_oauth_authorized(event):
+    global client
+    client.add_token(event['access_token'],event['refresh_token'])
     await setup_hook()
 
 def main():
