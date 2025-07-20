@@ -2,7 +2,7 @@
 
 from datetime import datetime,timezone
 from urllib.parse import quote_plus
-from urllib.request import urlretrieve
+from urllib.request import urlretrieve, urlopen, Request
 from threading import Thread
 from os import makedirs,path
 import json,sys,webbrowser,importlib
@@ -151,6 +151,7 @@ def save_tokens(access_token,refresh_token):
             },
             file
         )
+    print('login tokens saved to '+script_path()+'tokens.json')
 
 def load_tokens():
     try:
@@ -159,13 +160,36 @@ def load_tokens():
     except FileNotFoundError:
         return {}
 
+def refresh_tokens(refresh_token):
+    print('refreshing login tokens')
+    global client
+    refresh_request=Request(
+        'https://id.twitch.tv/oauth2/token',
+        (
+            'client_id='+client.client_id
+            +'&grant_type=refresh_token'
+            +'&refresh_token='+refresh_token
+        ).encode(),
+        {'Content-Type':'application/x-www-form-urlencoded'}
+    )
+    refresh_response=urlopen(refresh_request)
+    refresh_response=json.loads(refresh_response.read())
+    save_tokens(refresh_response['access_token'],refresh_response['refresh_token'])
+    return{
+        'access_token':refresh_response['access_token'],
+        'refresh_token':refresh_response['refresh_token'],
+    }
+
 def main():
     from twitch import Client
     from twitch.types import eventsub
     from twitch.ext.oauth import DeviceAuthFlow, Scopes
+    import asyncio
     global client
     client = Client(client_id='h08yimv2stqxci85tpfh5k7t16an2u')
-    tokens=load_tokens().values()
+    tokens=load_tokens()
+    if len(tokens)!=0:
+        tokens=refresh_tokens(tokens['refresh_token'])
     DeviceAuthFlow(
         client=client,
         scopes=[
@@ -191,6 +215,11 @@ def main():
     @client.event
     async def on_ready() -> None:
         print('astrolobot ready')
+        while True:
+            tokens=client.http.get_token(client.user.id)
+            await asyncio.sleep(tokens['expire_in']*0.9)
+            tokens=refresh_tokens(tokens['refresh_token'])
+            await client.authorize(tokens['access_token'],tokens['refresh_token'])
 
     @client.event
     async def on_chat_message(data: eventsub.chat.MessageEvent):
@@ -202,7 +231,7 @@ def main():
             for line in get_transits_formatted().splitlines(False):
                 await client.channel.chat.send_message(line,data['message_id'])
 
-    client.run(*tokens)
+    client.run(*tokens.values())
 
 # OBS functions
 
@@ -229,6 +258,7 @@ def obs_save_tokens(access_token,refresh_token):
     import obspython
     obspython.obs_data_set_string(obs_settings,'access_token',access_token)
     obspython.obs_data_set_string(obs_settings,'refresh_token',refresh_token)
+    print('login tokens saved to OBS')
 
 # https://docs.obsproject.com/scripting#script-function-exports
 
