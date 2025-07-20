@@ -2,7 +2,7 @@
 
 from datetime import datetime,timezone
 from urllib.parse import quote_plus
-from urllib.request import urlretrieve, urlopen, Request
+from urllib.request import urlretrieve, urlopen, Request, HTTPError
 from threading import Thread
 from os import makedirs,path
 import json,sys,webbrowser,importlib
@@ -172,13 +172,17 @@ def refresh_tokens(refresh_token):
         ).encode(),
         {'Content-Type':'application/x-www-form-urlencoded'}
     )
-    refresh_response=urlopen(refresh_request)
-    refresh_response=json.loads(refresh_response.read())
-    save_tokens(refresh_response['access_token'],refresh_response['refresh_token'])
-    return{
-        'access_token':refresh_response['access_token'],
-        'refresh_token':refresh_response['refresh_token'],
-    }
+    try:
+        refresh_response=urlopen(refresh_request)
+        refresh_response=json.loads(refresh_response.read())
+        save_tokens(refresh_response['access_token'],refresh_response['refresh_token'])
+        return{
+            'access_token':refresh_response['access_token'],
+            'refresh_token':refresh_response['refresh_token'],
+        }
+    except HTTPError:
+        print('refreshing tokens failed')
+        return {}
 
 def main():
     from twitch import Client
