@@ -138,8 +138,12 @@ def get_transits_formatted():
 
 # Twitch functions
 
+device_code=None
+
 def login(*args):
     global device_code
+    if device_code==None:
+        print('astrolobot is still starting, please wait',sys.stderr)
     webbrowser.open('https://www.twitch.tv/activate?public=true&device-code='+device_code)
 
 def save_tokens(access_token,refresh_token):
