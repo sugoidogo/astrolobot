@@ -7,7 +7,7 @@ from threading import Thread
 from os import makedirs,path
 import json,sys,webbrowser,importlib,tomllib
 
-def update(*args):
+def update():
     print('checking for updates...')
     with open(script_path()+'astrolobot.py','r') as file:
         current_script=file.read()
@@ -275,6 +275,9 @@ def script_main():
     dependency_setup()
     main()
 
+def obs_update(*args):
+    Thread(target=update,daemon=True).start()
+
 def obs_load_settings():
     import obspython
     global obs_settings
@@ -309,7 +312,7 @@ def script_properties():
     import obspython
     properties=obspython.obs_properties_create()
     obspython.obs_properties_add_button(properties,'login','Login to Twitch',login)
-    obspython.obs_properties_add_button(properties,'update','Check for Updates',update)
+    obspython.obs_properties_add_button(properties,'update','Check for Updates',obs_update)
     obspython.obs_properties_add_text(properties,'commands','commands',obspython.OBS_TEXT_INFO)
     obspython.obs_properties_add_text(properties,'positions','positions',obspython.OBS_TEXT_DEFAULT)
     obspython.obs_properties_add_text(properties,'transits','transits',obspython.OBS_TEXT_DEFAULT)
