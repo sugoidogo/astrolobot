@@ -7,7 +7,7 @@ from threading import Thread
 from os import makedirs,path
 import json,sys,webbrowser,importlib,tomllib
 
-def update():
+def update(*args):
     print('checking for updates...')
     with open(script_path()+'astrolobott.py','r') as file:
         current_script=file.read()
