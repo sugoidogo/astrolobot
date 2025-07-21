@@ -5,7 +5,7 @@ from urllib.parse import quote_plus
 from urllib.request import urlretrieve, urlopen, Request, HTTPError
 from threading import Thread
 from os import makedirs,path
-import json,sys,webbrowser,importlib
+import json,sys,webbrowser,importlib,tomllib
 
 def dependency_setup():
     print('checking dependencies')
@@ -21,6 +21,16 @@ def dependency_setup():
     print('dependencies ready')
 
 # Astrology functions
+
+def load_settings():
+    try:
+        with open(script_path()+'config.toml','r') as file:
+            return tomllib.loads(file.read())
+    except FileNotFoundError:
+        return {
+            'positions':'!positions',
+            'transits':'!transits',
+        }
 
 zodiac_signs = ["Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo", 
     "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"]
@@ -231,11 +241,12 @@ def main():
 
     @client.event
     async def on_chat_message(data: eventsub.chat.MessageEvent):
-        if data['message']['text']=='!astrology':
+        config=load_settings()
+        if data['message']['text']==config['positions']:
             for line in get_planet_info_formatted().splitlines(False):
                 await client.channel.chat.send_message(line,data['message_id'])
             return
-        if data['message']['text']=='!transits':
+        if data['message']['text']==config['transits']:
             for line in get_transits_formatted().splitlines(False):
                 await client.channel.chat.send_message(line,data['message_id'])
 
@@ -248,6 +259,12 @@ obs_settings=None
 def script_main():
     dependency_setup()
     main()
+
+def obs_load_settings():
+    import obspython
+    global obs_settings
+    settings=json.loads(obspython.obs_data_get_json_with_defaults(obs_settings))
+    return settings
     
 def obs_load_tokens():
     import obspython
@@ -271,19 +288,29 @@ def obs_save_tokens(access_token,refresh_token):
 # https://docs.obsproject.com/scripting#script-function-exports
 
 def script_description():
-    return 'adds the !astrology and !transits commands to your twitch channel, providing the current and upcoming star signs and retrograde status of the planets'
+    return 'adds astrology commands to your twitch channel, providing the current and upcoming star signs and retrograde status of the planets'
 
 def script_properties():
     import obspython
     properties=obspython.obs_properties_create()
     obspython.obs_properties_add_button(properties,'login','Login to Twitch',login)
+    obspython.obs_properties_add_text(properties,'commands','commands',obspython.OBS_TEXT_INFO)
+    obspython.obs_properties_add_text(properties,'positions','positions',obspython.OBS_TEXT_DEFAULT)
+    obspython.obs_properties_add_text(properties,'transits','transits',obspython.OBS_TEXT_DEFAULT)
     return properties
 
+def script_defaults(settings):
+    import obspython
+    obspython.obs_data_set_default_string(settings,'commands','you can change the commands below, they save automatically')
+    obspython.obs_data_set_default_string(settings,'positions','!positions')
+    obspython.obs_data_set_default_string(settings,'transits','!transits')
+
 def script_load(settings):
-    global obs_settings, save_tokens, load_tokens
+    global obs_settings, save_tokens, load_tokens, load_settings
     obs_settings=settings
     save_tokens=obs_save_tokens
     load_tokens=obs_load_tokens
+    load_settings=obs_load_settings
     def isatty():
         return False
     sys.stdout.isatty=isatty
@@ -296,6 +323,10 @@ def script_unload():
         asyncio.run(client.close())
     except NameError or ImportError:
         pass
+
+def script_update(settings):
+    global obs_settings
+    obs_settings=settings
 
 # test functions
 
