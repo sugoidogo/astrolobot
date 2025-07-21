@@ -9,13 +9,13 @@ import json,sys,webbrowser,importlib,tomllib
 
 def update(*args):
     print('checking for updates...')
-    with open(script_path()+'astrolobott.py','r') as file:
+    with open(script_path()+'astrolobot.py','r') as file:
         current_script=file.read()
     urlretrieve(
         'https://github.com/sugoidogo/astrolobot/releases/latest/download/astrolobot.py',
         script_path()+'astrolobot.py'
     )
-    with open(script_path()+'astrolobott.py','r') as file:
+    with open(script_path()+'astrolobot.py','r') as file:
         updated_script=file.read()
     if current_script==updated_script:
         print('up to date')
