@@ -23,9 +23,11 @@ def update():
         print('update downloaded, restart script to apply')
 
 def dependency_setup():
-    print('checking dependencies')
-    from pip._internal.cli.main import main as pip
-    pip(['install','-qq','pyswisseph','twitch.py','--target',script_path()+'pip'])
+    if not path.exists(script_path()+'pip'):
+        print('installing dependencies')
+        from pip._internal.cli.main import main as pip
+        pip(['install','-qq','pyswisseph','twitch.py','--target',script_path()+'pip'])
+       
     sys.path.append(script_path()+'pip')
 
     if not path.exists(script_path()+'ephe/seas_18.se1'):
