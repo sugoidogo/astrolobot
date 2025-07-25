@@ -34,6 +34,10 @@ def dependency_setup():
         print('downloading database')
         makedirs(script_path()+'ephe')
         urlretrieve('https://github.com/aloistr/swisseph/raw/refs/heads/master/ephe/seas_18.se1',script_path()+'ephe/seas_18.se1')
+    
+    import swisseph as swe
+    swe.set_ephe_path(script_path()+'ephe/')
+    swe.set_sid_mode(swe.SIDM_LAHIRI)
 
     print('dependencies ready')
 
@@ -49,18 +53,17 @@ def load_settings():
             'transits':'!transits',
         }
 
-zodiac_signs = ["Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo", 
-    "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"]
+def get_zodiac(angle):
+    zodiac = ["Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo", 
+        "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"]
+    return zodiac[int(angle//30)]
 
-def get_planet_info(date):
+def is_retrograde(speed):
+    return speed<0
+
+def get_positions_raw(date):
     import swisseph as swe
-    # make sure location is set in THIS thread
-    swe.set_ephe_path(script_path()+'ephe/')
-    swe.set_sid_mode(swe.SIDM_LAHIRI)
-    # Get current UTC time
     julian_day = swe.julday(date.year, date.month, date.day)
-
-    # List of planets (Swiss Ephemeris IDs)
     planets = {
         "The Sun": swe.SUN,
         "The Moon": swe.MOON,
@@ -75,93 +78,164 @@ def get_planet_info(date):
         "Chiron": swe.CHIRON,
         "North Node":swe.TRUE_NODE
     }
+    positions={}
 
-    retrograde_info = []
-    positions_info = {}
+    for planet_name, planet_id in planets.items():
+        position, _ = swe.calc_ut(julian_day, planet_id, swe.FLG_SPEED)
+        positions[planet_name]={
+            'angle':position[0],
+            'speed':position[3],
+        }
+        if planet_name=='North Node':
+            positions['South Node']={
+                'angle':(position[0]+180)%360,
+                'speed':position[3],
+            }
 
-    for name, planet_id in planets.items():
-        # Get planet position (longitude) and speed
-        pos, flags = swe.calc_ut(julian_day, planet_id, swe.FLG_SPEED)
+    return positions
 
-        # Check if retrograde (speed is negative)
-        is_retrograde = pos[3] < 0
-        if is_retrograde:
-            if name=='North Node':
-                pass
-            else:
-                retrograde_info.append(name)
+def get_positions(date):
+    positions={}
 
-        # Get zodiac sign (0-360° -> Aries to Pisces)
-        sign_num = int(pos[0] // 30)  # 30° per sign
-        positions_info[name]=sign_num
+    for name, position_raw in get_positions_raw(date).items():
+        positions[name]={
+            'zodiac':get_zodiac(position_raw['angle']),
+            'retrograde':is_retrograde(position_raw['speed']),
+        }
 
-        if name=='North Node':
-            # rotate sign 180 dagrees
-            south_pos=pos[0]+180
-            if(south_pos>360):
-                south_pos-=360
-            # calculate South Node sign
-            sign_num = int(south_pos // 30)
-            positions_info['South Node']=sign_num
+    return positions
 
-    return {
-        'positions': positions_info,
-        'retrograde': retrograde_info,
-    }
+def get_list_formatted(in_list,isare=True):
+    match len(in_list):
+        case 0:
+            output='Nothing'
+            if isare:
+                output+=' is '
+        case 1:
+            output=in_list[0]
+            if isare:
+                output+=' is '
+        case 2:
+            output=' and '.join(in_list)
+            if isare:
+                output+=' are '
+        case _:
+            output=', '.join(in_list[0:-1])+', and '+in_list[-1]
+            if isare:
+                output+=' are '
+    return output
 
-def get_planet_info_formatted(date=datetime.utcnow()):
-    planets=get_planet_info(date)
-            
-    match len(planets['retrograde']):
-            case 0:
-                info=''
-            case 1:
-                info=planets['retrograde'][0]+' is in Retrograde\n'
-            case 2:
-                info=' and '.join(planets['retrograde'])+' are in Retrograde\n'
-            case _:
-                info=', '.join(planets['retrograde'][0:-1])+', and '+planets['retrograde'][-1]+' are in Retrograde\n'
+def get_positions_formatted(date):
+    retrograde_planets=[]
+    position_strings=[]
 
-    positions_info=[]
-    for planet,position in planets['positions'].items():
-        positions_info.append(planet+' is in '+zodiac_signs[position])
+    for name, position in get_positions(date).items():
+        if(position['retrograde']):
+            retrograde_planets.append(name)
+        position_strings.append(name+' is in '+position['zodiac'])
+    
+    positions_formatted=get_list_formatted(retrograde_planets)+'in Retrograde\n'
 
-    info+=', '.join(positions_info[0:2])+'\n'
-    info+=', '.join(positions_info[2:5])+'\n'
-    info+=', '.join(positions_info[5:8])+'\n'
-    info+=', '.join(positions_info[8:11])+'\n'
-    info+=', '.join(positions_info[11:13])+'\n'
-    return info
+    positions_formatted+=', '.join(position_strings[0:2])+'\n'
+    positions_formatted+=', '.join(position_strings[2:5])+'\n'
+    positions_formatted+=', '.join(position_strings[5:8])+'\n'
+    positions_formatted+=', '.join(position_strings[8:11])+'\n'
+    positions_formatted+=', '.join(position_strings[11:13])+'\n'
+    
+    return positions_formatted
 
 def get_transits():
     seconds_in_1_day=86400
     now=datetime.utcnow()
-    positions_today=get_planet_info(now)
-    position_updates={}
+    positions_now=get_positions(now)
+    transits={}
     days=1
-    date_format='%b %d'
-    while len(position_updates)<12 and days<29:
+
+    while len(transits)<12 and days<29:
         future_timestamp=now.timestamp()+(days*seconds_in_1_day)
         future_date=datetime.fromtimestamp(future_timestamp,timezone.utc)
-        positions_future=get_planet_info(future_date)
-        for planet in positions_future['retrograde']:
-            if planet not in positions_today['retrograde'] and planet not in position_updates.keys():
-                position_updates[planet]='entering Retrograde on '+future_date.strftime(date_format)
-        for planet in positions_today['retrograde']:
-            if planet not in positions_future['retrograde'] and planet not in position_updates.keys():
-                position_updates[planet]='exiting Retrograde on '+future_date.strftime(date_format)
-        for planet in positions_future['positions']:
-            if positions_today['positions'][planet]!=positions_future['positions'][planet] and planet not in position_updates.keys():
-                position_updates[planet]='entering '+zodiac_signs[positions_future['positions'][planet]]+' on '+future_date.strftime(date_format)
+        positions_future=get_positions(future_date)
+        for name, position_future in positions_future.items():
+            position_now=positions_now[name]
+            if name not in transits and position_now!=position_future:
+                position_future['date']=future_date
+                if position_now['zodiac']==position_future['zodiac']:
+                    position_future['zodiac']=None
+                if position_now['retrograde']==position_future['retrograde']:
+                    position_future['retrograde']=None
+                transits[name]=position_future
         days+=1
-    return position_updates        
+    
+    return transits
 
 def get_transits_formatted():
-    transits=get_transits()
-    info=''
-    for planet,transit in transits.items():
-        info+=planet+' is '+transit+'\n'
-    return info
+    date_format='%b %d'
+    transits_formatted=''
+
+    for name,transit in get_transits().items():
+        if transit['zodiac']!=None:
+            transits_formatted+=name+' is entering '+transit['zodiac']+' on '+transit['date'].strftime(date_format)+'\n'
+        if transit['retrograde']==True:
+            transits_formatted+=name+' is entering Retrograde on '+transit['date'].strftime(date_format)+'\n'
+        if transit['retrograde']==False:
+            transits_formatted+=name+' is exiting Retrograde on '+transit['date'].strftime(date_format)+'\n'
+        
+    return transits_formatted
+
+def get_aspects(date, minor=False):
+    positions=get_positions_raw(date)
+    major_aspects={
+        'conjuction':{'angle':0,'orb':10.0},
+        'oposition':{'angle':180,'orb':10.0},
+        'trine':{'angle':120,'orb':10.0},
+        'square':{'angle':90,'orb':10.0},
+        'sextile':{'angle':60,'orb':5.0},
+    }
+    minor_aspects={
+        'semi-sextile':{'angle':30,'orb':1.5},
+        'inconjunct':{'angle':150,'orb':3},
+        'semi-square':{'angle':45,'orb':3},
+        'trioctile':{'angle':135,'orb':3},
+        'quintile':{'angle':72,'orb':1},
+        'biquintile':{'angle':144,'orb':1},
+    }
+    aspects={}
+    if minor:
+        selected_aspects=minor_aspects
+    else:
+        selected_aspects=major_aspects
+
+    for aname, aposition in positions.copy().items():
+        del positions[aname]
+        if aname.endswith('Node'):
+            continue
+        planet_aspects={}
+        for bname, bposition in positions.items():
+            angle_diff=abs(aposition['angle']-bposition['angle'])
+            for aspect_name,aspect in selected_aspects.items():
+                aspect_max=(aspect['angle']+aspect['orb'])%360
+                aspect_min=(aspect['angle']-aspect['orb'])%360
+                if aspect_min<angle_diff<aspect_max:
+                    try:
+                        planet_aspects[aspect_name].append(bname)
+                    except KeyError:
+                        planet_aspects[aspect_name]=[bname]
+        if len(planet_aspects)!=0:
+            aspects[aname]=planet_aspects
+
+    return aspects
+
+def get_aspects_formatted(date,minor=False):
+    aspects_formatted=''
+
+    for planet,aspects in get_aspects(date,minor).items():
+        aspects_formatted+=planet+' is in '
+        aspects_list=[]
+        for aspect_name,aspect_planets in aspects.items():
+            aspects_list.append(aspect_name+' with '+get_list_formatted(aspect_planets,False))
+        aspects_formatted+=get_list_formatted(aspects_list,False)+'\n'
+
+    return aspects_formatted
 
 # Twitch functions
 
@@ -355,6 +429,9 @@ if __name__ == '__main__':
     def script_path():
         return path.dirname(__file__)+'/'
     dependency_setup()
-    print(get_planet_info_formatted())
-    print(get_transits_formatted())
-    main()
+    #print(get_positions_formatted(datetime(2025,7,21)))
+    #print(get_transits_formatted())
+    #main()
+    #print(get_aspects_formatted())
+    print(get_aspects_formatted(datetime(2025,7,21)))
+    print(get_aspects_formatted(datetime(2025,7,21),True))
