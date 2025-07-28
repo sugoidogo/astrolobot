@@ -334,12 +334,21 @@ def main():
     async def on_chat_message(data: eventsub.chat.MessageEvent):
         config=load_settings()
         if data['message']['text']==config['positions']:
-            for line in get_planet_info_formatted().splitlines(False):
+            for line in get_positions_formatted(datetime.now()).splitlines(False):
                 await client.channel.chat.send_message(line,data['message_id'])
             return
         if data['message']['text']==config['transits']:
             for line in get_transits_formatted().splitlines(False):
                 await client.channel.chat.send_message(line,data['message_id'])
+            return
+        if data['message']['text']==config['major_aspects']:
+            for line in get_aspects_formatted(datetime.now()).splitlines(False):
+                await client.channel.chat.send_message(line,data['message_id'])
+            return
+        if data['message']['text']==config['minor_aspects']:
+            for line in get_aspects_formatted(datetime.now(),True).splitlines(False):
+                await client.channel.chat.send_message(line,data['message_id'])
+            return
 
     client.run(*tokens.values())
 
@@ -392,6 +401,8 @@ def script_properties():
     obspython.obs_properties_add_text(properties,'commands','commands',obspython.OBS_TEXT_INFO)
     obspython.obs_properties_add_text(properties,'positions','positions',obspython.OBS_TEXT_DEFAULT)
     obspython.obs_properties_add_text(properties,'transits','transits',obspython.OBS_TEXT_DEFAULT)
+    obspython.obs_properties_add_text(properties,'major_aspects','major aspects',obspython.OBS_TEXT_DEFAULT)
+    obspython.obs_properties_add_text(properties,'minor_aspects','minor aspects',obspython.OBS_TEXT_DEFAULT)
     return properties
 
 def script_defaults(settings):
@@ -399,6 +410,8 @@ def script_defaults(settings):
     obspython.obs_data_set_default_string(settings,'commands','you can change the commands below, they save automatically')
     obspython.obs_data_set_default_string(settings,'positions','!positions')
     obspython.obs_data_set_default_string(settings,'transits','!transits')
+    obspython.obs_data_set_default_string(settings,'major_aspects','!aspects major')
+    obspython.obs_data_set_default_string(settings,'minor_aspects','!aspects minor')
 
 def script_load(settings):
     global obs_settings, save_tokens, load_tokens, load_settings
@@ -432,6 +445,5 @@ if __name__ == '__main__':
     #print(get_positions_formatted(datetime(2025,7,21)))
     #print(get_transits_formatted())
     #main()
-    #print(get_aspects_formatted())
     print(get_aspects_formatted(datetime(2025,7,21)))
     print(get_aspects_formatted(datetime(2025,7,21),True))
