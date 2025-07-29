@@ -196,7 +196,7 @@ def get_transits_formatted(date=today(), maxdays=28):
 
 @cache
 def get_aspects(date=today(), minor=False):
-    positions=get_positions_raw(date)
+    positions=get_positions_raw(date).copy()
     major_aspects={
         'conjuction':{'angle':0,'orb':10.0},
         'oposition':{'angle':180,'orb':10.0},
