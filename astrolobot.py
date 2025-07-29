@@ -42,6 +42,10 @@ def dependency_setup():
 
     print('dependencies ready')
 
+def today():
+    now=datetime.utcnow()
+    return datetime(now.year,now.month,now.day)
+
 # Astrology functions
 
 def load_settings():
@@ -63,7 +67,7 @@ def is_retrograde(speed):
     return speed<0
 
 @cache
-def get_positions_raw(date):
+def get_positions_raw(date=today()):
     import swisseph as swe
     julian_day = swe.julday(date.year, date.month, date.day)
     planets = {
@@ -97,7 +101,7 @@ def get_positions_raw(date):
     return positions
 
 @cache
-def get_positions(date):
+def get_positions(date=today()):
     positions={}
 
     for name, position_raw in get_positions_raw(date).items():
@@ -129,7 +133,7 @@ def get_list_formatted(in_list,isare=True):
     return output
 
 @cache
-def get_positions_formatted(date):
+def get_positions_formatted(date=today()):
     retrograde_planets=[]
     position_strings=[]
 
@@ -148,15 +152,14 @@ def get_positions_formatted(date):
     
     return positions_formatted
 
-def get_transits():
-    seconds_in_1_day=86400
-    now=datetime.utcnow()
-    positions_now=get_positions(now)
+@cache
+def get_transits(date=today(), maxdays=28):
+    positions_now=get_positions(date)
     transits={}
     days=1
 
-    while len(transits)<12 and days<29:
-        future_timestamp=now.timestamp()+(days*seconds_in_1_day)
+    while len(transits)<12 and days<maxdays:
+        future_timestamp=date.timestamp()+(days*seconds_in_1_day)
         future_date=datetime.fromtimestamp(future_timestamp,timezone.utc)
         positions_future=get_positions(future_date)
         for name, position_future in positions_future.items():
@@ -172,11 +175,12 @@ def get_transits():
     
     return transits
 
-def get_transits_formatted():
+@cache
+def get_transits_formatted(date=today(), maxdays=28):
     date_format='%b %d'
     transits_formatted=''
 
-    for name,transit in get_transits().items():
+    for name,transit in get_transits(date, maxdays).items():
         if transit['zodiac']!=None:
             transits_formatted+=name+' is entering '+transit['zodiac']+' on '+transit['date'].strftime(date_format)+'\n'
         if transit['retrograde']==True:
@@ -187,7 +191,7 @@ def get_transits_formatted():
     return transits_formatted
 
 @cache
-def get_aspects(date, minor=False):
+def get_aspects(date=today(), minor=False):
     positions=get_positions_raw(date)
     major_aspects={
         'conjuction':{'angle':0,'orb':10.0},
@@ -231,7 +235,7 @@ def get_aspects(date, minor=False):
     return aspects
 
 @cache
-def get_aspects_formatted(date,minor=False):
+def get_aspects_formatted(date=today(),minor=False):
     aspects_formatted=''
 
     for planet,aspects in get_aspects(date,minor).items():
@@ -340,7 +344,7 @@ def main():
     async def on_chat_message(data: eventsub.chat.MessageEvent):
         config=load_settings()
         if data['message']['text']==config['positions']:
-            for line in get_positions_formatted(datetime.now()).splitlines(False):
+            for line in get_positions_formatted().splitlines(False):
                 await client.channel.chat.send_message(line,data['message_id'])
             return
         if data['message']['text']==config['transits']:
@@ -348,11 +352,11 @@ def main():
                 await client.channel.chat.send_message(line,data['message_id'])
             return
         if data['message']['text']==config['major_aspects']:
-            for line in get_aspects_formatted(datetime.now()).splitlines(False):
+            for line in get_aspects_formatted().splitlines(False):
                 await client.channel.chat.send_message(line,data['message_id'])
             return
         if data['message']['text']==config['minor_aspects']:
-            for line in get_aspects_formatted(datetime.now(),True).splitlines(False):
+            for line in get_aspects_formatted(minor=True).splitlines(False):
                 await client.channel.chat.send_message(line,data['message_id'])
             return
 
@@ -448,8 +452,8 @@ if __name__ == '__main__':
     def script_path():
         return path.dirname(__file__)+'/'
     dependency_setup()
-    #print(get_positions_formatted(datetime(2025,7,21)))
-    #print(get_transits_formatted())
+    print(get_positions_formatted())
+    print(get_transits_formatted())
     #main()
-    print(get_aspects_formatted(datetime(2025,7,21)))
-    print(get_aspects_formatted(datetime(2025,7,21),True))
+    print(get_aspects_formatted())
+    print(get_aspects_formatted(minor=True))
