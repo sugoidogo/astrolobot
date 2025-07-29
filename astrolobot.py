@@ -5,6 +5,7 @@ from urllib.parse import quote_plus
 from urllib.request import urlretrieve, urlopen, Request, HTTPError
 from threading import Thread
 from os import makedirs,path
+from functools import cache
 import json,sys,webbrowser,importlib,tomllib
 
 def update():
@@ -61,6 +62,7 @@ def get_zodiac(angle):
 def is_retrograde(speed):
     return speed<0
 
+@cache
 def get_positions_raw(date):
     import swisseph as swe
     julian_day = swe.julday(date.year, date.month, date.day)
@@ -94,6 +96,7 @@ def get_positions_raw(date):
 
     return positions
 
+@cache
 def get_positions(date):
     positions={}
 
@@ -125,6 +128,7 @@ def get_list_formatted(in_list,isare=True):
                 output+=' are '
     return output
 
+@cache
 def get_positions_formatted(date):
     retrograde_planets=[]
     position_strings=[]
@@ -182,6 +186,7 @@ def get_transits_formatted():
         
     return transits_formatted
 
+@cache
 def get_aspects(date, minor=False):
     positions=get_positions_raw(date)
     major_aspects={
@@ -225,6 +230,7 @@ def get_aspects(date, minor=False):
 
     return aspects
 
+@cache
 def get_aspects_formatted(date,minor=False):
     aspects_formatted=''
 
