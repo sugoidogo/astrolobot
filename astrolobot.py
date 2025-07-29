@@ -162,7 +162,7 @@ def get_transits(date=today(), maxdays=28):
     transits={}
     days=1
 
-    while len(transits)<12 and days<maxdays:
+    while len(transits)<12 and days<=maxdays:
         future_timestamp=date.timestamp()+(days*seconds_in_1_day)
         future_date=datetime.fromtimestamp(future_timestamp,timezone.utc)
         positions_future=get_positions(future_date)
