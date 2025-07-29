@@ -58,6 +58,8 @@ def load_settings():
             'transits':'!transits',
             'major_aspects':'!aspects major',
             'minor_aspects':'!aspects minor',
+            'major_aspect_transits':'!aspects major transits',
+            'minor_aspect_transits':'!aspects minor transits',
         }
 
 def get_zodiac(angle):
@@ -114,7 +116,7 @@ def get_positions(date=today()):
 
     return positions
 
-def get_list_formatted(in_list,isare=True):
+def get_list_formatted(in_list,isare=False):
     match len(in_list):
         case 0:
             output='Nothing'
@@ -144,7 +146,7 @@ def get_positions_formatted(date=today()):
             retrograde_planets.append(name)
         position_strings.append(name+' is in '+position['zodiac'])
     
-    positions_formatted=get_list_formatted(retrograde_planets)+'in Retrograde\n'
+    positions_formatted=get_list_formatted(retrograde_planets,True)+'in Retrograde\n'
 
     positions_formatted+=', '.join(position_strings[0:2])+'\n'
     positions_formatted+=', '.join(position_strings[2:5])+'\n'
@@ -179,9 +181,10 @@ def get_transits(date=today(), maxdays=28):
     
     return transits
 
+date_format='%b %d'
+
 @cache
 def get_transits_formatted(date=today(), maxdays=28):
-    date_format='%b %d'
     transits_formatted=''
 
     for name,transit in get_transits(date, maxdays).items():
@@ -246,10 +249,142 @@ def get_aspects_formatted(date=today(),minor=False):
         aspects_formatted+=planet+' is in '
         aspects_list=[]
         for aspect_name,aspect_planets in aspects.items():
-            aspects_list.append(aspect_name+' with '+get_list_formatted(aspect_planets,False))
-        aspects_formatted+=get_list_formatted(aspects_list,False)+'\n'
+            aspects_list.append(aspect_name+' with '+get_list_formatted(aspect_planets))
+        aspects_formatted+=get_list_formatted(aspects_list)+'\n'
 
     return aspects_formatted
+
+@cache
+def get_aspect_transits(date=today(),minor=False,maxdays=28):
+    date_now=today()
+    timestamp_now=date_now.timestamp()
+    aspects_now=get_aspects(date_now,minor)
+    pre_transits={}
+    days=0
+
+    def aspects_contains(aspects,planet_a,aspect=None,planet_b=None):
+        if planet_a not in aspects:
+            return False
+        elif aspect and aspect not in aspects[planet_a]:
+            return False
+        elif aspect and planet_b and planet_b not in aspects[planet_a][aspect]:
+            return False
+        return True
+
+    def ensure_pre_path(planet_a,aspect=None):
+        if planet_a not in pre_transits:
+            pre_transits[planet_a]={}
+        if aspect and aspect not in pre_transits[planet_a]:
+            pre_transits[planet_a][aspect]={}
+
+    def pre_planet_b(planet_a,aspect,planet_b,date_future,direction):
+        ensure_pre_path(planet_a,aspect)
+        pre_transits[planet_a][aspect][planet_b]={
+            'date':date_future,
+            'direction':direction
+        }
+
+    def pre_aspect(planet_a,aspect,planets,date_future,direction):
+        ensure_pre_path(planet_a)
+        pre_transits[planet_a][aspect]={}
+        for planet_b in planets:
+            pre_planet_b(planet_a,aspect,planet_b,date_future,direction)
+
+    def pre_planet_a(planet_a,aspects,date_future,direction):
+        pre_transits[planet_a]={}
+        for aspect,planets in aspects.items():
+            pre_aspect(planet_a,aspect,planets,date_future,direction)
+
+    while days<maxdays:
+        days+=1
+        timestamp_future=timestamp_now+(seconds_in_1_day*days)
+        date_future=datetime.fromtimestamp(timestamp_future,timezone.utc)
+        aspects_future=get_aspects(date_future)
+        for planet_a,aspects in aspects_now.items():
+            try:
+                pre_transits[planet_a]
+            except KeyError:
+                if not aspects_contains(aspects_future,planet_a):
+                    pre_planet_a(planet_a,aspects,date_future,'exiting')
+                    continue
+            for aspect, planets in aspects.items():
+                try:
+                    pre_transits[planet_a][aspect]
+                except KeyError:
+                    if not aspects_contains(aspects_future,planet_a,aspect):
+                        pre_aspect(planet_a,aspect,planets,date_future,'exiting')
+                        continue
+                    for planet_b in planets:
+                        try:
+                            pre_transits[planet_a][aspect][planet_b]
+                        except KeyError:
+                            if not aspects_contains(aspects_future,planet_a,aspect,planet_b):
+                                pre_planet_b(planet_a,aspect,planet_b,date_future,'exiting')
+    
+    days=0
+    while days<maxdays:
+        days+=1
+        timestamp_future=timestamp_now+(seconds_in_1_day*days)
+        date_future=datetime.fromtimestamp(timestamp_future,timezone.utc)
+        aspects_future=get_aspects(date_future)
+        for planet_a,aspects in aspects_future.items():
+            try:
+                pre_transits[planet_a]
+            except KeyError:
+                if not aspects_contains(aspects_now,planet_a):
+                    pre_planet_a(planet_a,aspects,date_future,'entering')
+                    continue
+            for aspect, planets in aspects.items():
+                try:
+                    pre_transits[planet_a][aspect]
+                except KeyError:
+                    if not aspects_contains(aspects_now,planet_a,aspect):
+                        pre_aspect(planet_a,aspect,planets,date_future,'entering')
+                        continue
+                    for planet_b in planets:
+                        try:
+                            pre_transits[planet_a][aspect][planet_b]
+                        except KeyError:
+                            if not aspects_contains(aspects_now,planet_a,aspect,planet_b):
+                                pre_planet_b(planet_a,aspect,planet_b,date_future,'entering')
+
+    post_transits={}
+
+    for planet_a,aspects in pre_transits.items():
+        post_transits[planet_a]={}
+        for aspect,planets in aspects.items():
+            for planet_b,transit in planets.items():
+                direction=transit['direction']
+                date=transit['date']
+                if direction not in post_transits[planet_a]:
+                    post_transits[planet_a][direction]={}
+                if date not in post_transits[planet_a][direction]:
+                    post_transits[planet_a][direction][date]={}
+                if aspect not in post_transits[planet_a][direction][date]:
+                    post_transits[planet_a][direction][date][aspect]=[]
+                post_transits[planet_a][direction][date][aspect].append(planet_b)
+
+    return post_transits
+
+@cache
+def get_aspect_transits_formatted(date=today(),minor=False,maxdays=28):
+    aspect_transits=get_aspect_transits(date,minor,maxdays)
+    aspect_transits_formatted=''
+
+    for planet_a,directions in aspect_transits.items():
+        aspect_transits_formatted+=planet_a+' is '
+        direction_list=[]
+        for direction,dates in directions.items():
+            date_list=[]
+            for date,aspects in dates.items():
+                aspect_list=[]
+                for aspect,planets in aspects.items():
+                    aspect_list.append(aspect+' with '+get_list_formatted(planets))
+                date_list.append(get_list_formatted(aspect_list)+' on '+date.strftime(date_format))
+            direction_list.append(direction+' '+get_list_formatted(date_list))
+        aspect_transits_formatted+=get_list_formatted(direction_list)+'\n'
+    
+    return aspect_transits_formatted
 
 # Twitch functions
 
@@ -363,6 +498,14 @@ def main():
             for line in get_aspects_formatted(minor=True).splitlines(False):
                 await client.channel.chat.send_message(line,data['message_id'])
             return
+        if data['message']['text']==config['major_aspect_transits']:
+            for line in get_aspect_transits_formatted().splitlines(False):
+                await client.channel.chat.send_message(line,data['message_id'])
+            return
+        if data['message']['text']==config['minor_aspect_transits']:
+            for line in get_aspect_transits_formatted(minor=True).splitlines(False):
+                await client.channel.chat.send_message(line,data['message_id'])
+            return
 
     client.run(*tokens.values())
 
@@ -417,6 +560,8 @@ def script_properties():
     obspython.obs_properties_add_text(properties,'transits','transits',obspython.OBS_TEXT_DEFAULT)
     obspython.obs_properties_add_text(properties,'major_aspects','major aspects',obspython.OBS_TEXT_DEFAULT)
     obspython.obs_properties_add_text(properties,'minor_aspects','minor aspects',obspython.OBS_TEXT_DEFAULT)
+    obspython.obs_properties_add_text(properties,'major_aspect_transits','major aspect transits',obspython.OBS_TEXT_DEFAULT)
+    obspython.obs_properties_add_text(properties,'minor_aspect_transits','minor aspect transits',obspython.OBS_TEXT_DEFAULT)
     return properties
 
 def script_defaults(settings):
@@ -426,6 +571,8 @@ def script_defaults(settings):
     obspython.obs_data_set_default_string(settings,'transits','!transits')
     obspython.obs_data_set_default_string(settings,'major_aspects','!aspects major')
     obspython.obs_data_set_default_string(settings,'minor_aspects','!aspects minor')
+    obspython.obs_data_set_default_string(settings,'major_aspect_transits','!aspects major transits')
+    obspython.obs_data_set_default_string(settings,'minor_aspect_transits','!aspects minor transits')
 
 def script_load(settings):
     global obs_settings, save_tokens, load_tokens, load_settings
@@ -458,6 +605,8 @@ if __name__ == '__main__':
     dependency_setup()
     print(get_positions_formatted())
     print(get_transits_formatted())
-    #main()
     print(get_aspects_formatted())
     print(get_aspects_formatted(minor=True))
+    print(get_aspect_transits_formatted())
+    print(get_aspect_transits_formatted(minor=True))
+    main()
