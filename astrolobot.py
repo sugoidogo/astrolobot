@@ -56,6 +56,8 @@ def load_settings():
         return {
             'positions':'!positions',
             'transits':'!transits',
+            'major_aspects':'!aspects major',
+            'minor_aspects':'!aspects minor',
         }
 
 def get_zodiac(angle):
