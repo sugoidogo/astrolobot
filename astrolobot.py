@@ -154,6 +154,8 @@ def get_positions_formatted(date=today()):
     
     return positions_formatted
 
+seconds_in_1_day=86400
+
 @cache
 def get_transits(date=today(), maxdays=28):
     positions_now=get_positions(date)
