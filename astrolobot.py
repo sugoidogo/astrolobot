@@ -394,7 +394,11 @@ def login(*args):
     global device_code
     if device_code==None:
         print('astrolobot is still starting, please wait',sys.stderr)
-    webbrowser.open('https://www.twitch.tv/activate?public=true&device-code='+device_code)
+    else:
+        login_url='https://www.twitch.tv/activate?public=true&device-code='+device_code
+        print("if your browser doesn't automatically open, go to the following url:")
+        print(login_url)
+        webbrowser.open(login_url)
 
 def save_tokens(access_token,refresh_token):
     with open(script_path()+'tokens.json','w') as file:
