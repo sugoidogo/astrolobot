@@ -1,2 +1,2 @@
 pyswisseph
-twitch.py
+twitch.py == 3.*
