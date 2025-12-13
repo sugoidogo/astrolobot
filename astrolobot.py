@@ -467,7 +467,7 @@ def main():
     async def on_code(code: str):
         global device_code, obs_settings
         device_code=code
-        if obs_settings == None:
+        if len(tokens)==0:
             login()
 
     @client.event
