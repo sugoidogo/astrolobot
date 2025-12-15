@@ -10,18 +10,21 @@ import json,sys,webbrowser,importlib,tomllib
 
 def update():
     print('checking for updates...')
-    with open(script_path()+'astrolobot.py','r') as file:
-        current_script=file.read()
-    urlretrieve(
-        'https://gitea.sugoidogo.com/SugoiDogo/astrolobot/releases/download/latest/astrolobot.py',
-        script_path()+'astrolobot.py'
-    )
-    with open(script_path()+'astrolobot.py','r') as file:
-        updated_script=file.read()
-    if current_script==updated_script:
-        print('up to date')
-    else:
-        print('update downloaded, restart script to apply')
+    try:
+        with open(script_path()+'astrolobot.py','r') as file:
+            current_script=file.read()
+        urlretrieve(
+            'https://gitea.sugoidogo.com/SugoiDogo/astrolobot/releases/download/latest/astrolobot.py',
+            script_path()+'astrolobot.py'
+        )
+        with open(script_path()+'astrolobot.py','r') as file:
+            updated_script=file.read()
+        if current_script==updated_script:
+            print('up to date')
+        else:
+            print('update downloaded, restart script to apply')
+    except:
+        print('update check failed, ignoring')
 
 def dependency_setup():
     if not path.exists(script_path()+'pip'):
