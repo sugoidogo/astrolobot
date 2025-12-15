@@ -13,7 +13,7 @@ def update():
     with open(script_path()+'astrolobot.py','r') as file:
         current_script=file.read()
     urlretrieve(
-        'https://github.com/sugoidogo/astrolobot/releases/latest/download/astrolobot.py',
+        'https://gitea.sugoidogo.com/SugoiDogo/astrolobot/releases/download/latest/astrolobot.py',
         script_path()+'astrolobot.py'
     )
     with open(script_path()+'astrolobot.py','r') as file:
